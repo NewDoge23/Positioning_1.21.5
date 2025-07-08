@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "healing_pools",
+  "version": "${version}",
+  "name": "Healing Pools",
+  "description": "Welcome to Healing Pools! Discover underground pools of healing water!",
+  "authors": [
+    "NewDoge23"
+  ],
+  "contact": {
+    "homepage": "https://fabricmc.net/",
+    "sources": "https://github.com/FabricMC/fabric-example-mod"
+  },
+  "license": "CC0-1.0",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.newdoge.positioning.Positioning"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.16.14",
+    "minecraft": "~1.21.5",
+    "java": ">=21",
+    "fabric-api": "*"
+  },
+  "suggests": {
+    "another-mod": "*"
+  }
+}
