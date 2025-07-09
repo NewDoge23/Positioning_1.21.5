@@ -1,9 +1,7 @@
 package com.newdoge.positioning;
 
-
-
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -14,75 +12,151 @@ import java.util.UUID;
 
 public class ModMethods implements ServerTickEvents.EndTick {
 
-    private final Map<UUID, Long> playerCheckCooldowns = new HashMap<>(); // Para chequear cada 5 seg
-    private final Map<UUID, Boolean> playerWarned= new HashMap<>(); // Si ya se le advirtió por zona cercana
-    private final Map<UUID, Long> dangerZoneEnteredAt = new HashMap<>(); // Tick en el que entró en zona peligrosa
+    private final Map<UUID, Long> playerCheckCooldowns = new HashMap<>();
+    private final Map<UUID, Boolean> playerWarned = new HashMap<>();
+    private final Map<UUID, Long> dangerZoneEnteredAt = new HashMap<>();
+    private final Map<UUID, Boolean> wasInNeutralZone = new HashMap<>();
 
-    // Registra el evento en el mod
     public static void register() {
         ServerTickEvents.END_SERVER_TICK.register(new ModMethods());
     }
 
     @Override
     public void onEndTick(MinecraftServer server) {
-        //Positioning.LOGGER.info("onEndTick activo"); //LOG PARA DEBUG
-
         long currentTick = server.getTicks();
 
         for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
             UUID playerId = player.getUuid();
-            double z = player.getZ();
 
-            // Cooldown general: chequea solo cada 5 segundos (100 ticks)
+            // 1. ¿Eligió grupo? Si no, pedir selección y saltar este tick
+            if (!PlayerGroupManager.hasGroup(playerId)) {
+                ServerPlayNetworking.send(player, new RequestGroupSelectionPayload());
+                sendDangerZonePacket(player, 0); // Oculta barra si estaba activa
+                continue;
+            }
+
+            if (!player.getWorld().getRegistryKey().equals(net.minecraft.world.World.OVERWORLD)) {
+                // Si no está en el Overworld, NO hacer nada especial, salteá este jugador
+                sendDangerZonePacket(player, 0);
+                continue;
+            }
+
+
+            double z = player.getZ();
+            Integer group = PlayerGroupManager.getGroup(playerId);
+
+            // 2. Cooldown por jugador (0,5s)
             long lastCheck = playerCheckCooldowns.getOrDefault(playerId, 0L);
-            if (currentTick - lastCheck < 100) continue; // todavía no revisa de nuevo
+            if (currentTick - lastCheck < 10) continue;
             playerCheckCooldowns.put(playerId, currentTick);
 
-            // Revisa si está fuera de la zona de peligro
-            if (z > 50) {
-                // Resetear advertencias y cuenta regresiva
-                playerWarned.put(playerId, false);
-                dangerZoneEnteredAt.remove(playerId);
-                sendDangerZonePacket(player, 0);
-                continue;
-            }
-
-            // Si está dentro de la zona de peligro
-            if (z <= 50 && z > 0) {
-                if (!playerWarned.getOrDefault(playerId, false)) {
-                    player.sendMessage(Text.literal("Estás en la zona neutral. Fijate donde pisas. Si te da.."), false);
-                    playerWarned.put(playerId, true);
-                    Positioning.LOGGER.info("Jugador: {} Z: {}", player.getName().getString(), player.getZ()); // LOG a consola
+            // Lógica especial según grupo
+            if (group == 1) { // Grupo NORTE (Z+)
+                if (z > 50) {
+                    // Zona segura
+                    if (wasInNeutralZone.getOrDefault(playerId, false)) {
+                        player.sendMessage(Text.literal("¡Volviste a zona segura!"), false);
+                        wasInNeutralZone.put(playerId, false);
+                    }
+                    resetPlayerState(playerId, player);
+                    continue;
                 }
-                // Si sale de la zona de peligro = cancela la cuenta regresiva
-                dangerZoneEnteredAt.remove(playerId);
-                sendDangerZonePacket(player, 0);
-                continue;
-            }
-
-            // Si cruza el limite
-            if (z <= 0) {
-                // Apenas cruza el límite = Inicia la cuenta regresiva
-                if (!dangerZoneEnteredAt.containsKey(playerId)) {
-                    dangerZoneEnteredAt.put(playerId, currentTick);
-                    player.sendMessage(Text.literal("¡PELIGRO! Tenés 60 segundos para pegar la vuelta. Primer advertencia"), false);
-                }
-                long enteredAt = dangerZoneEnteredAt.get(playerId);
-                int secondsLeft = (int)(60 - (currentTick - enteredAt) / 20);
-
-                if (secondsLeft > 0) {
-                    sendDangerZonePacket(player, secondsLeft);
-                    player.sendMessage(Text.literal("Volvé, o morís en: " + secondsLeft + "segundos"), true);
-                } else {
-                    player.sendMessage(Text.literal("Se te avisó."), false);
-                    Positioning.LOGGER.info("Matando a: {} por cruzar la ZN", player.getName().getString()); // LOG a consola
-                    player.setHealth(0.0F); // Mata al jugador
-                    dangerZoneEnteredAt.remove(playerId); // Limpia el estado
-                    playerWarned.put(playerId, false); // Limpia el warning para la próxima vez
+                if (z <= 50 && z >= 0) {
+                    // Zona neutral, advertencia única
+                    wasInNeutralZone.put(playerId, true);
+                    if (!playerWarned.getOrDefault(playerId, false)) {
+                        player.sendMessage(Text.literal("¡Zona neutral! Estás cerca del límite sur."), false);
+                        playerWarned.put(playerId, true);
+                    }
                     sendDangerZonePacket(player, 0);
+                    dangerZoneEnteredAt.remove(playerId);
+                    continue;
+                }
+                if (z < 0 && z > -50) {
+                    // Zona prohibida, cuenta regresiva
+                    handleDangerZoneCountdown(server, player, playerId, currentTick, true);
+                    continue;
+                }
+                if (z <= -50) {
+                    // Muerte instantánea
+                    killInstantly(player, playerId, "por cruzar el límite sur (-50) siendo grupo norte");
+                    continue;
+                }
+            } else if (group == 2) { // Grupo SUR (Z-)
+                if (z < -50) {
+                    // Zona segura
+                    if (wasInNeutralZone.getOrDefault(playerId, false)) {
+                        player.sendMessage(Text.literal("¡Volviste a zona segura!"), false);
+                        wasInNeutralZone.put(playerId, false);
+                    }
+                    resetPlayerState(playerId, player);
+                    continue;
+                }
+                if (z >= -50 && z <= 0) {
+                    // Zona neutral, advertencia única
+                    wasInNeutralZone.put(playerId, true);
+                    if (!playerWarned.getOrDefault(playerId, false)) {
+                        player.sendMessage(Text.literal("¡Zona neutral! Estás cerca del límite norte."), false);
+                        playerWarned.put(playerId, true);
+                    }
+                    sendDangerZonePacket(player, 0);
+                    dangerZoneEnteredAt.remove(playerId);
+                    continue;
+                }
+                if (z > 0 && z < 50) {
+                    // Zona prohibida, cuenta regresiva
+                    handleDangerZoneCountdown(server, player, playerId, currentTick, false);
+                    continue;
+                }
+                if (z >= 50) {
+                    // Muerte instantánea
+                    killInstantly(player, playerId, "por cruzar el límite norte (+50) siendo grupo sur");
+                    continue;
                 }
             }
         }
+    }
+
+    // Resetea estados si está en zona segura
+    private void resetPlayerState(UUID playerId, ServerPlayerEntity player) {
+        playerWarned.put(playerId, false);
+        dangerZoneEnteredAt.remove(playerId);
+        sendDangerZonePacket(player, 0);
+    }
+
+    // Lógica de cuenta regresiva
+    private void handleDangerZoneCountdown(MinecraftServer server, ServerPlayerEntity player, UUID playerId, long currentTick, boolean esNorte) {
+        if (!dangerZoneEnteredAt.containsKey(playerId)) {
+            dangerZoneEnteredAt.put(playerId, currentTick);
+            String msg = esNorte ?
+                    "¡PELIGRO! Estás en la zona prohibida sur. Tenés 60 segundos para volver a tu lado (+Z) o morís."
+                    :
+                    "¡PELIGRO! Estás en la zona prohibida norte. Tenés 60 segundos para volver a tu lado (-Z) o morís.";
+            player.sendMessage(Text.literal(msg), false);
+        }
+        long enteredAt = dangerZoneEnteredAt.get(playerId);
+        int secondsLeft = (int) (60 - (currentTick - enteredAt) / 20);
+
+        if (secondsLeft > 0) {
+            sendDangerZonePacket(player, secondsLeft);
+        } else {
+            player.sendMessage(Text.literal("Moriste por invadir demasiado la zona enemiga."), false);
+            Positioning.LOGGER.info("Matando a: {} por quedarse en zona prohibida", player.getName().getString());
+            player.setHealth(0.0F);
+            dangerZoneEnteredAt.remove(playerId);
+            playerWarned.put(playerId, false);
+            sendDangerZonePacket(player, 0);
+        }
+    }
+
+    // Muerte instantánea
+    private void killInstantly(ServerPlayerEntity player, UUID playerId, String reason) {
+        player.sendMessage(Text.literal("¡Moriste por cruzar el límite final!"), false);
+        Positioning.LOGGER.info("Matando a: {} {}", player.getName().getString(), reason);
+        player.setHealth(0.0F);
+        dangerZoneEnteredAt.remove(playerId);
+        playerWarned.put(playerId, false);
+        sendDangerZonePacket(player, 0);
     }
 
     private void sendDangerZonePacket(ServerPlayerEntity player, int secondsLeft) {

@@ -1,19 +1,21 @@
 package com.newdoge.positioning;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.Window;
+import net.minecraft.client.gui.screen.ConfirmScreen;
+import net.minecraft.text.Text;
 
 public class PositioningClient implements ClientModInitializer {
     public static int lastSecondsLeft = 0;
 
     @Override
     public void onInitializeClient() {
-        // SOLO ACTUALIZA LA VARIABLE
+        // Handler de la barra
         ClientPlayNetworking.registerGlobalReceiver(
                 DangerZonePayload.ID,
                 (payload, context) -> {
@@ -21,7 +23,6 @@ public class PositioningClient implements ClientModInitializer {
                 }
         );
 
-        // EL RENDER SE REGISTRA SOLO UNA VEZ
         HudRenderCallback.EVENT.register((DrawContext drawContext, RenderTickCounter tickCounter) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             if (client.player == null) return;
@@ -29,7 +30,6 @@ public class PositioningClient implements ClientModInitializer {
             int secondsLeft = lastSecondsLeft;
             if (secondsLeft <= 0) return;
 
-            // --- BossBar custom (simple) ---
             Window window = client.getWindow();
             int width = window.getScaledWidth();
             int barWidth = 240;
@@ -37,20 +37,15 @@ public class PositioningClient implements ClientModInitializer {
             int barX = (width - barWidth) / 2;
             int barY = 20;
 
-            // Fondo barra (gris oscuro)
             drawContext.fill(barX, barY, barX + barWidth, barY + barHeight, 0x80000000);
-
-            // Progreso (rojo, transparente)
             float percent = Math.min(1.0f, Math.max(0.0f, secondsLeft / 60.0f));
             int progressWidth = (int) (barWidth * percent);
             drawContext.fill(barX, barY, barX + progressWidth, barY + barHeight, 0x80FF4444);
 
-            // Texto arriba de la barra
             String texto = "¡Tiempo para salir de la zona: " + secondsLeft + "s!";
             int textX = width / 2 - client.textRenderer.getWidth(texto) / 2;
             drawContext.drawText(client.textRenderer, texto, textX, barY - 12, 0xFFFFFF, true);
 
-            // --- Número central en segundos clave ---
             if (secondsLeft == 60 || secondsLeft == 30 || secondsLeft == 15 || (secondsLeft <= 10 && secondsLeft > 0)) {
                 String bigNum = String.valueOf(secondsLeft);
                 int scale = 4;
@@ -66,5 +61,27 @@ public class PositioningClient implements ClientModInitializer {
                 drawContext.getMatrices().pop();
             }
         });
+
+        // Handler del pop-up de selección de grupo
+        ClientPlayNetworking.registerGlobalReceiver(
+                RequestGroupSelectionPayload.ID,
+                (payload, context) -> {
+                    context.client().execute(() -> {
+                        MinecraftClient client = MinecraftClient.getInstance();
+                        if (client.player == null) return;
+                        client.setScreen(new ConfirmScreen(
+                                (choice) -> {
+                                    int group = choice ? 1 : 2;
+                                    ClientPlayNetworking.send(new SubmitGroupSelectionPayload(group));
+                                    client.setScreen(null);
+                                },
+                                Text.literal("¿A qué grupo querés unirte?"),
+                                Text.literal("Norte (Z+) / Sur (Z-)"),
+                                Text.literal("Norte (Z+)"),
+                                Text.literal("Sur (Z-)")
+                        ));
+                    });
+                }
+        );
     }
 }
