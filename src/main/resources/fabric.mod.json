@@ -9,13 +9,16 @@
   ],
   "contact": {
     "homepage": "https://fabricmc.net/",
-    "sources": "https://github.com/FabricMC/fabric-example-mod"
+    "sources": "https://github.com/NewDoge23/Positioning_1.21.5"
   },
   "license": "CC0-1.0",
   "environment": "*",
   "entrypoints": {
     "main": [
       "com.newdoge.positioning.Positioning"
+    ],
+    "client": [
+      "com.newdoge.positioning.PositioningClient"
     ]
   },
   "depends": {

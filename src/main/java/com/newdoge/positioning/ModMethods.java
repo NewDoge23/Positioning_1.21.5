@@ -3,6 +3,7 @@ package com.newdoge.positioning;
 
 
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -24,7 +25,7 @@ public class ModMethods implements ServerTickEvents.EndTick {
 
     @Override
     public void onEndTick(MinecraftServer server) {
-        Positioning.LOGGER.info("onEndTick activo"); //LOG PARA DEBUG
+        //Positioning.LOGGER.info("onEndTick activo"); //LOG PARA DEBUG
 
         long currentTick = server.getTicks();
 
@@ -42,6 +43,7 @@ public class ModMethods implements ServerTickEvents.EndTick {
                 // Resetear advertencias y cuenta regresiva
                 playerWarned.put(playerId, false);
                 dangerZoneEnteredAt.remove(playerId);
+                sendDangerZonePacket(player, 0);
                 continue;
             }
 
@@ -54,6 +56,7 @@ public class ModMethods implements ServerTickEvents.EndTick {
                 }
                 // Si sale de la zona de peligro = cancela la cuenta regresiva
                 dangerZoneEnteredAt.remove(playerId);
+                sendDangerZonePacket(player, 0);
                 continue;
             }
 
@@ -63,21 +66,26 @@ public class ModMethods implements ServerTickEvents.EndTick {
                 if (!dangerZoneEnteredAt.containsKey(playerId)) {
                     dangerZoneEnteredAt.put(playerId, currentTick);
                     player.sendMessage(Text.literal("¡PELIGRO! Tenés 60 segundos para pegar la vuelta. Primer advertencia"), false);
+                }
+                long enteredAt = dangerZoneEnteredAt.get(playerId);
+                int secondsLeft = (int)(60 - (currentTick - enteredAt) / 20);
+
+                if (secondsLeft > 0) {
+                    sendDangerZonePacket(player, secondsLeft);
+                    player.sendMessage(Text.literal("Volvé, o morís en: " + secondsLeft + "segundos"), true);
                 } else {
-                    long enteredAt = dangerZoneEnteredAt.get(playerId);
-                    long secondsLeft = 60 - (currentTick - enteredAt) / 20;
-                    if (secondsLeft > 0) {
-                        player.sendMessage(Text.literal("Volvé, o morís en: " + secondsLeft + "segundos"), true);
-                    } else {
-                        player.sendMessage(Text.literal("Se te avisó."), false);
-                        Positioning.LOGGER.info("Matando a: {} por cruzar la ZN", player.getName().getString()); // LOG a consola
-                        player.setHealth(0.0F); // Mata al jugador
-                        dangerZoneEnteredAt.remove(playerId); // Limpia el estado
-                        playerWarned.put(playerId, false); // Limpia el warning para la próxima vez
-                    }
+                    player.sendMessage(Text.literal("Se te avisó."), false);
+                    Positioning.LOGGER.info("Matando a: {} por cruzar la ZN", player.getName().getString()); // LOG a consola
+                    player.setHealth(0.0F); // Mata al jugador
+                    dangerZoneEnteredAt.remove(playerId); // Limpia el estado
+                    playerWarned.put(playerId, false); // Limpia el warning para la próxima vez
+                    sendDangerZonePacket(player, 0);
                 }
             }
-
         }
+    }
+
+    private void sendDangerZonePacket(ServerPlayerEntity player, int secondsLeft) {
+        ServerPlayNetworking.send(player, new DangerZonePayload(secondsLeft));
     }
 }
