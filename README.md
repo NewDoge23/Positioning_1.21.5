@@ -1,6 +1,6 @@
 # Positioning (Fabric/Quilt Mod) – Minecraft 1.21.5
 
-![Positioning Logo](https://raw.githubusercontent.com/NewDoge23/Positioning_1.21.5/main/icon.png)
+![Positioning Logo](https://github.com/NewDoge23/Positioning_1.21.5/blob/master/icon.png)
 
 ## 🚩 ¿Qué es Positioning?
 
