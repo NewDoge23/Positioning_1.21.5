@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "healing_pools",
+  "id": "positioning",
   "version": "${version}",
-  "name": "Healing Pools",
-  "description": "Welcome to Healing Pools! Discover underground pools of healing water!",
+  "name": "Positioning",
+  "description": "!",
   "authors": [
     "NewDoge23"
   ],
