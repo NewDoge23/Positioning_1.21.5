@@ -4,7 +4,10 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.network.packet.s2c.play.TitleS2CPacket;
+import net.minecraft.network.packet.s2c.play.SubtitleS2CPacket;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +44,13 @@ public class ModMethods implements ServerTickEvents.EndTick {
                 continue;
             }
 
+            if (player.isDead() || player.isRemoved() || player.getHealth() <= 0.0F) {
+                // Limpiá títulos por si quedaron pegados, pero no sigas con lógica de zona peligrosa
+                player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal("")));
+                player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.literal("")));
+                sendDangerZonePacket(player, 0);
+                continue;
+            }
 
             double z = player.getZ();
             Integer group = PlayerGroupManager.getGroup(playerId);
@@ -70,6 +80,9 @@ public class ModMethods implements ServerTickEvents.EndTick {
                     }
                     sendDangerZonePacket(player, 0);
                     dangerZoneEnteredAt.remove(playerId);
+                    // Limpiá el título por si venía de zona prohibida
+                    player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal("")));
+                    player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.literal("")));
                     continue;
                 }
                 if (z < 0 && z > -50) {
@@ -101,6 +114,9 @@ public class ModMethods implements ServerTickEvents.EndTick {
                     }
                     sendDangerZonePacket(player, 0);
                     dangerZoneEnteredAt.remove(playerId);
+                    // Limpiá el título por si venía de zona prohibida
+                    player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal("")));
+                    player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.literal("")));
                     continue;
                 }
                 if (z > 0 && z < 50) {
@@ -119,6 +135,9 @@ public class ModMethods implements ServerTickEvents.EndTick {
 
     // Resetea estados si está en zona segura
     private void resetPlayerState(UUID playerId, ServerPlayerEntity player) {
+        // Limpiá el título si estaba
+        player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal("")));
+        player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.literal("")));
         playerWarned.put(playerId, false);
         dangerZoneEnteredAt.remove(playerId);
         sendDangerZonePacket(player, 0);
@@ -128,18 +147,29 @@ public class ModMethods implements ServerTickEvents.EndTick {
     private void handleDangerZoneCountdown(MinecraftServer server, ServerPlayerEntity player, UUID playerId, long currentTick, boolean esNorte) {
         if (!dangerZoneEnteredAt.containsKey(playerId)) {
             dangerZoneEnteredAt.put(playerId, currentTick);
-            String msg = esNorte ?
-                    "¡PELIGRO! Estás en la zona prohibida sur. Tenés 60 segundos para volver a tu lado (+Z) o morís."
-                    :
-                    "¡PELIGRO! Estás en la zona prohibida norte. Tenés 60 segundos para volver a tu lado (-Z) o morís.";
-            player.sendMessage(Text.literal(msg), false);
+
+            // Título rojo con tiempo
+            Text title = Text.literal("¡Volvé a tu territorio!").styled(s -> s.withColor(0xFF4444));
+            Text subtitle = Text.literal("Tenés 30 segundos para volver").styled(s -> s.withColor(0xFF4444));
+
+            // --- SONIDO DE ALERTA ---
+            player.playSound(
+                    SoundEvents.BLOCK_BELL_USE,
+                    3.0F, // volumen
+                    1.0F  // pitch
+            );
+
+            player.networkHandler.sendPacket(new TitleS2CPacket(title));
+            player.networkHandler.sendPacket(new SubtitleS2CPacket(subtitle));
         }
         long enteredAt = dangerZoneEnteredAt.get(playerId);
-        int secondsLeft = (int) (60 - (currentTick - enteredAt) / 20);
+        int secondsLeft = (int) (30 - (currentTick - enteredAt) / 20); // Ahora 30 segundos
 
         if (secondsLeft > 0) {
             sendDangerZonePacket(player, secondsLeft);
         } else {
+            // Limpiá el título al morir
+            player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal("")));
             player.sendMessage(Text.literal("Moriste por invadir demasiado la zona enemiga."), false);
             Positioning.LOGGER.info("Matando a: {} por quedarse en zona prohibida", player.getName().getString());
             player.setHealth(0.0F);
@@ -151,6 +181,9 @@ public class ModMethods implements ServerTickEvents.EndTick {
 
     // Muerte instantánea
     private void killInstantly(ServerPlayerEntity player, UUID playerId, String reason) {
+        // Limpiá el título
+        player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal("")));
+        player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.literal("")));
         player.sendMessage(Text.literal("¡Moriste por cruzar el límite final!"), false);
         Positioning.LOGGER.info("Matando a: {} {}", player.getName().getString(), reason);
         player.setHealth(0.0F);

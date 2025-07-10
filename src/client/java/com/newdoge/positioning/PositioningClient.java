@@ -10,12 +10,31 @@ import net.minecraft.client.util.Window;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.text.Text;
 
+// import java.util.HashMap;
+// import java.util.Map;
+// import java.util.UUID;
+
 public class PositioningClient implements ClientModInitializer {
+
     public static int lastSecondsLeft = 0;
+    private static int lastNumberTitle = -1;
+    private static boolean dangerSoundPlayed = false;
+
+    // // FUTURO: para sync grupal, no usado ahora
+    // public static final Map<UUID, Integer> CLIENT_PLAYER_GROUPS = new HashMap<>();
 
     @Override
     public void onInitializeClient() {
-        // Handler de la barra
+        // // Para cuando vuelva el sync grupal (tab)
+        // ClientPlayNetworking.registerGlobalReceiver(
+        //         SyncGroupsPayload.ID,
+        //         (payload, context) -> {
+        //             CLIENT_PLAYER_GROUPS.clear();
+        //             CLIENT_PLAYER_GROUPS.putAll(payload.groups());
+        //         }
+        // );
+
+        // Handler de la barra y peligro
         ClientPlayNetworking.registerGlobalReceiver(
                 DangerZonePayload.ID,
                 (payload, context) -> {
@@ -30,35 +49,57 @@ public class PositioningClient implements ClientModInitializer {
             int secondsLeft = lastSecondsLeft;
             if (secondsLeft <= 0) return;
 
+            if (secondsLeft == 30 && !dangerSoundPlayed) {
+                dangerSoundPlayed = true;
+                client.player.playSound(
+                        net.minecraft.sound.SoundEvents.ENTITY_ENDERMAN_SCREAM,
+                        3.0F,
+                        1.0F
+                );
+            } else if (secondsLeft != 30) {
+                dangerSoundPlayed = false;
+            }
+
             Window window = client.getWindow();
             int width = window.getScaledWidth();
             int barWidth = 240;
-            int barHeight = 14;
+            int barHeight = 6;
             int barX = (width - barWidth) / 2;
-            int barY = 20;
+            int barY = 22;
 
-            drawContext.fill(barX, barY, barX + barWidth, barY + barHeight, 0x80000000);
-            float percent = Math.min(1.0f, Math.max(0.0f, secondsLeft / 60.0f));
+            // Fondo barra
+            drawContext.fill(barX, barY, barX + barWidth, barY + barHeight, 0xA0000000);
+
+            // Bordes suaves
+            drawContext.fill(barX - 2, barY, barX, barY + barHeight, 0x80000000);
+            drawContext.fill(barX + barWidth, barY, barX + barWidth + 2, barY + barHeight, 0x80000000);
+
+            // Progreso
+            float percent = Math.min(1.0f, Math.max(0.0f, secondsLeft / 30.0f));
             int progressWidth = (int) (barWidth * percent);
-            drawContext.fill(barX, barY, barX + progressWidth, barY + barHeight, 0x80FF4444);
+            drawContext.fill(barX, barY, barX + progressWidth, barY + barHeight, 0xA0FF4444);
 
+            // Bordes del progreso
+            drawContext.fill(barX - 2, barY, barX, barY + barHeight, 0x80FF4444);
+            if (progressWidth > 0)
+                drawContext.fill(barX + progressWidth, barY, barX + progressWidth + 2, barY + barHeight, 0x80FF4444);
+
+            // Texto arriba de la barra
             String texto = "¡Tiempo para salir de la zona: " + secondsLeft + "s!";
             int textX = width / 2 - client.textRenderer.getWidth(texto) / 2;
             drawContext.drawText(client.textRenderer, texto, textX, barY - 12, 0xFFFFFF, true);
 
-            if (secondsLeft == 60 || secondsLeft == 30 || secondsLeft == 15 || (secondsLeft <= 10 && secondsLeft > 0)) {
-                String bigNum = String.valueOf(secondsLeft);
-                int scale = 4;
-                int numWidth = client.textRenderer.getWidth(bigNum) * scale;
-                int numHeight = client.textRenderer.fontHeight * scale;
-                int centerX = width / 2 - numWidth / 2;
-                int centerY = window.getScaledHeight() / 2 - numHeight / 2;
-
-                drawContext.getMatrices().push();
-                drawContext.getMatrices().translate(centerX, centerY, 0);
-                drawContext.getMatrices().scale(scale, scale, 1.0f);
-                drawContext.drawText(client.textRenderer, bigNum, 0, 0, 0xFF4444, false);
-                drawContext.getMatrices().pop();
+            // --- Título vanilla para countdown (últimos 10s) ---
+            if (secondsLeft <= 10 && secondsLeft > 0) {
+                if (secondsLeft != lastNumberTitle) {
+                    lastNumberTitle = secondsLeft;
+                    client.inGameHud.setTitle(
+                            Text.literal(String.valueOf(secondsLeft)).styled(s -> s.withColor(0xFF4444))
+                    );
+                }
+            } else if (lastNumberTitle != -1) {
+                lastNumberTitle = -1;
+                client.inGameHud.setTitle(Text.literal(""));
             }
         });
 
