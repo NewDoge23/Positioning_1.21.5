@@ -5,14 +5,17 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.util.Window;
 import net.minecraft.client.gui.screen.ConfirmScreen;
 import net.minecraft.text.Text;
+import net.minecraft.text.MutableText;
+import net.minecraft.util.Formatting;
 
-// import java.util.HashMap;
-// import java.util.Map;
-// import java.util.UUID;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class PositioningClient implements ClientModInitializer {
 
@@ -20,21 +23,21 @@ public class PositioningClient implements ClientModInitializer {
     private static int lastNumberTitle = -1;
     private static boolean dangerSoundPlayed = false;
 
-    // // FUTURO: para sync grupal, no usado ahora
-    // public static final Map<UUID, Integer> CLIENT_PLAYER_GROUPS = new HashMap<>();
+    // Sync del TAB (mapa actualizado por el payload)
+    public static final Map<UUID, Integer> CLIENT_PLAYER_GROUPS = new HashMap<>();
 
     @Override
     public void onInitializeClient() {
-        // // Para cuando vuelva el sync grupal (tab)
-        // ClientPlayNetworking.registerGlobalReceiver(
-        //         SyncGroupsPayload.ID,
-        //         (payload, context) -> {
-        //             CLIENT_PLAYER_GROUPS.clear();
-        //             CLIENT_PLAYER_GROUPS.putAll(payload.groups());
-        //         }
-        // );
+        // Recibe y guarda los grupos para el TAB visual
+        ClientPlayNetworking.registerGlobalReceiver(
+                SyncGroupsPayload.ID,
+                (payload, context) -> {
+                    CLIENT_PLAYER_GROUPS.clear();
+                    CLIENT_PLAYER_GROUPS.putAll(payload.groups());
+                }
+        );
 
-        // Handler de la barra y peligro
+        // Handler de la barra y peligro (sin cambios)
         ClientPlayNetworking.registerGlobalReceiver(
                 DangerZonePayload.ID,
                 (payload, context) -> {
@@ -124,5 +127,37 @@ public class PositioningClient implements ClientModInitializer {
                     });
                 }
         );
+
+        // --- TAB CUSTOM VISUAL ---
+        // Esto hookea el nombre que se muestra en el TAB según el grupo.
+        // Si tu Fabric API expone PlayerListEntryCallback, usalo. Si no, hacé un tick rápido:
+        ClientPlayNetworking.registerGlobalReceiver(
+                SyncGroupsPayload.ID,
+                (payload, context) -> {
+                    CLIENT_PLAYER_GROUPS.clear();
+                    CLIENT_PLAYER_GROUPS.putAll(payload.groups());
+                    // Forzá update del TAB visual apenas llega el payload
+                    MinecraftClient.getInstance().execute(() -> updateTabList());
+                }
+        );
+    }
+
+    // Este método se llama cada vez que llega un update de grupos.
+    public static void updateTabList() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.getNetworkHandler() == null) return;
+        for (PlayerListEntry entry : client.getNetworkHandler().getPlayerList()) {
+            UUID uuid = entry.getProfile().getId();
+            Integer group = CLIENT_PLAYER_GROUPS.get(uuid);
+            if (group != null) {
+                String prefix = group == 1 ? "[NORTE] " : "[SUR] ";
+                Formatting color = group == 1 ? Formatting.AQUA : Formatting.LIGHT_PURPLE;
+                MutableText newName = Text.literal(prefix).formatted(color).append(entry.getProfile().getName());
+                entry.setDisplayName(newName);
+            } else {
+                // Si no tiene grupo, nombre default
+                entry.setDisplayName(null);
+            }
+        }
     }
 }

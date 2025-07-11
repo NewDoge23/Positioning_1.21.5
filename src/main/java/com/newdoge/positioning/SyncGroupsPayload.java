@@ -11,7 +11,7 @@ import java.util.UUID;
 
 public record SyncGroupsPayload(Map<UUID, Integer> groups) implements CustomPayload {
     public static final CustomPayload.Id<SyncGroupsPayload> ID =
-            CustomPayload.id("positioning:sync_groups");
+            CustomPayload.id("sync_groups");
 
     public static final PacketCodec<RegistryByteBuf, SyncGroupsPayload> CODEC =
             PacketCodec.of(
