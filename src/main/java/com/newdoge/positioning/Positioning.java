@@ -1,13 +1,13 @@
 package com.newdoge.positioning;
 
+import com.newdoge.positioning.network.DangerZonePayload;
+import com.newdoge.positioning.network.RequestGroupSelectionPayload;
+import com.newdoge.positioning.network.SubmitGroupSelectionPayload;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.WorldSavePath;
 
@@ -21,7 +21,7 @@ public class Positioning implements ModInitializer {
 
     @Override
     public void onInitialize() {
-        // Registro de payloads (solo los que seguís usando)
+        // Registro de payloads
         PayloadTypeRegistry.playS2C().register(DangerZonePayload.ID, DangerZonePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(RequestGroupSelectionPayload.ID, RequestGroupSelectionPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(SubmitGroupSelectionPayload.ID, SubmitGroupSelectionPayload.CODEC);
@@ -32,9 +32,9 @@ public class Positioning implements ModInitializer {
                 int group = payload.group();
                 PlayerGroupManager.setGroup(context.player().getUuid(), group);
                 String msg = (group == 1)
-                        ? "¡Te uniste al grupo Norte! Solo podés explorar el lado positivo del mapa (Z+)."
-                        : "¡Te uniste al grupo Sur! Solo podés explorar el lado negativo del mapa (Z-).";
-                context.player().sendMessage(Text.literal(msg), false);
+                        ? "positioning.joined_north"
+                        : "positioning.joined_south";
+                context.player().sendMessage(Text.translatable(msg), false);
             });
         });
 

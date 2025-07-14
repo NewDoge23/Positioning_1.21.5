@@ -1,5 +1,7 @@
 package com.newdoge.positioning;
 
+import com.newdoge.positioning.network.DangerZonePayload;
+import com.newdoge.positioning.network.RequestGroupSelectionPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.server.MinecraftServer;
@@ -65,7 +67,7 @@ public class ModMethods implements ServerTickEvents.EndTick {
                 if (z > 50) {
                     // Zona segura
                     if (wasInNeutralZone.getOrDefault(playerId, false)) {
-                        player.sendMessage(Text.literal("¡Volviste a zona segura!"), false);
+                        player.sendMessage(Text.translatable("msg.positioning.safe_zone"), false);
                         wasInNeutralZone.put(playerId, false);
                     }
                     resetPlayerState(playerId, player);
@@ -75,7 +77,7 @@ public class ModMethods implements ServerTickEvents.EndTick {
                     // Zona neutral, advertencia única
                     wasInNeutralZone.put(playerId, true);
                     if (!playerWarned.getOrDefault(playerId, false)) {
-                        player.sendMessage(Text.literal("¡Zona neutral! Estás cerca del límite sur."), false);
+                        player.sendMessage(Text.translatable("msg.positioning.neutral_zone"), false);
                         playerWarned.put(playerId, true);
                     }
                     sendDangerZonePacket(player, 0);
@@ -92,14 +94,14 @@ public class ModMethods implements ServerTickEvents.EndTick {
                 }
                 if (z <= -50) {
                     // Muerte instantánea
-                    killInstantly(player, playerId, "por cruzar el límite sur (-50) siendo grupo norte");
+                    killInstantly(player, playerId, "por invasor");
                     continue;
                 }
             } else if (group == 2) { // Grupo SUR (Z-)
                 if (z < -50) {
                     // Zona segura
                     if (wasInNeutralZone.getOrDefault(playerId, false)) {
-                        player.sendMessage(Text.literal("¡Volviste a zona segura!"), false);
+                        player.sendMessage(Text.translatable("msg.positioning.safe_zone"), false);
                         wasInNeutralZone.put(playerId, false);
                     }
                     resetPlayerState(playerId, player);
@@ -109,7 +111,7 @@ public class ModMethods implements ServerTickEvents.EndTick {
                     // Zona neutral, advertencia única
                     wasInNeutralZone.put(playerId, true);
                     if (!playerWarned.getOrDefault(playerId, false)) {
-                        player.sendMessage(Text.literal("¡Zona neutral! Estás cerca del límite norte."), false);
+                        player.sendMessage(Text.translatable("msg.positioning.neutral_zone"), false);
                         playerWarned.put(playerId, true);
                     }
                     sendDangerZonePacket(player, 0);
@@ -149,8 +151,8 @@ public class ModMethods implements ServerTickEvents.EndTick {
             dangerZoneEnteredAt.put(playerId, currentTick);
 
             // Título rojo con tiempo
-            Text title = Text.literal("¡Volvé a tu territorio!").styled(s -> s.withColor(0xFF4444));
-            Text subtitle = Text.literal("Tenés 30 segundos para volver").styled(s -> s.withColor(0xFF4444));
+            Text title = Text.translatable("msg.positioning.getback").styled(s -> s.withColor(0xFF4444));
+            Text subtitle = Text.translatable("msg.positioning.getback_time").styled(s -> s.withColor(0xFF4444));
 
             // --- SONIDO DE ALERTA ---
             player.playSound(
@@ -170,8 +172,8 @@ public class ModMethods implements ServerTickEvents.EndTick {
         } else {
             // Limpiá el título al morir
             player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal("")));
-            player.sendMessage(Text.literal("Moriste por invadir demasiado la zona enemiga."), false);
-            Positioning.LOGGER.info("Matando a: {} por quedarse en zona prohibida", player.getName().getString());
+            player.sendMessage(Text.translatable("msg.positioning.timeout"), false);
+            Positioning.LOGGER.info("Killing: {} for trespassing too much time", player.getName().getString());
             player.setHealth(0.0F);
             dangerZoneEnteredAt.remove(playerId);
             playerWarned.put(playerId, false);
@@ -184,8 +186,8 @@ public class ModMethods implements ServerTickEvents.EndTick {
         // Limpiá el título
         player.networkHandler.sendPacket(new TitleS2CPacket(Text.literal("")));
         player.networkHandler.sendPacket(new SubtitleS2CPacket(Text.literal("")));
-        player.sendMessage(Text.literal("¡Moriste por cruzar el límite final!"), false);
-        Positioning.LOGGER.info("Matando a: {} {}", player.getName().getString(), reason);
+        player.sendMessage(Text.translatable("msg.positioning.limit_reached"), false);
+        Positioning.LOGGER.info("Killing: {} {}", player.getName().getString(), reason);
         player.setHealth(0.0F);
         dangerZoneEnteredAt.remove(playerId);
         playerWarned.put(playerId, false);

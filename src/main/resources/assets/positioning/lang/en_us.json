@@ -1,0 +1,18 @@
+{
+  "positioning.joined_north": "Joined northern team",
+  "positioning.joined_south": "Joined southern team",
+
+  "msg.positioning.safe_zone": "You're back in your safe zone",
+  "msg.positioning.neutral_zone": "Neutral zone! Watch your step.",
+  "msg.positioning.getback": "You're in enemy territory!",
+  "msg.positioning.getback_time": "You have 30s to turn arround",
+  "msg.positioning.timeout": "You died for trespassing for too much",
+  "msg.positioning.limit_reached": "You died for trespassing too much",
+
+  "bar.seconds_left": "Time to clear the area",
+
+  "menu.positioning.title": "Which territory do you prefer?",
+  "menu.positioning.subtitle": "North (Z+) / South (Z-)",
+  "menu.positioning.op1": "North (Z+)",
+  "menu.positioning.op2": "South (Z-)"
+}

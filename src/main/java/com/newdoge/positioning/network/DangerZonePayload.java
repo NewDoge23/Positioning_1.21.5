@@ -1,5 +1,6 @@
-package com.newdoge.positioning;
+package com.newdoge.positioning.network;
 
+import com.newdoge.positioning.Positioning;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.network.RegistryByteBuf;

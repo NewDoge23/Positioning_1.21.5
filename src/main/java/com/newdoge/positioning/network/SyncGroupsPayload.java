@@ -1,4 +1,4 @@
-package com.newdoge.positioning;
+package com.newdoge.positioning.network;
 
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
