@@ -1,0 +1,18 @@
+{
+  "positioning.joined_north": "Seu território agora é o norte. Não vá para o sul.",
+  "positioning.joined_south": "Seu território agora é o sul. Não vá para o norte.",
+
+  "msg.positioning.safe_zone": "Você retornou ao seu território",
+  "msg.positioning.neutral_zone": "Zona neutra! Cuidado onde pisa.",
+  "msg.positioning.getback": "Você está em território inimigo!",
+  "msg.positioning.getback_time": "Você tem 30 segundos para retornar",
+  "msg.positioning.timeout": "Você morreu por invadir por muito tempo",
+  "msg.positioning.limit_reached": "Você morreu por ir muito longe em território inimigo",
+
+  "bar.seconds_left": "Hora de retornar",
+
+  "menu.positioning.title": "Qual território você prefere?",
+  "menu.positioning.subtitle": "Norte (Z+) / Sul (Z-)",
+  "menu.positioning.op1": "Norte (Z+)",
+  "menu.positioning.op2": "Sul (Z-)"
+}

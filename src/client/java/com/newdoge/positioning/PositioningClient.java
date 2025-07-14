@@ -1,5 +1,8 @@
 package com.newdoge.positioning;
 
+import com.newdoge.positioning.network.DangerZonePayload;
+import com.newdoge.positioning.network.RequestGroupSelectionPayload;
+import com.newdoge.positioning.network.SubmitGroupSelectionPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.fabricmc.api.ClientModInitializer;
@@ -85,7 +88,7 @@ public class PositioningClient implements ClientModInitializer {
                 drawContext.fill(barX + progressWidth, barY, barX + progressWidth + 2, barY + barHeight, 0x80FF4444);
 
             // Texto arriba de la barra
-            String texto = "¡Tiempo para salir de la zona: " + secondsLeft + "s!";
+            String texto = Text.translatable(("bar.seconds_left"), secondsLeft).getString();
             int textX = width / 2 - client.textRenderer.getWidth(texto) / 2;
             drawContext.drawText(client.textRenderer, texto, textX, barY - 12, 0xFFFFFF, true);
 
@@ -116,10 +119,10 @@ public class PositioningClient implements ClientModInitializer {
                                     ClientPlayNetworking.send(new SubmitGroupSelectionPayload(group));
                                     client.setScreen(null);
                                 },
-                                Text.literal("¿A qué grupo querés unirte?"),
-                                Text.literal("Norte (Z+) / Sur (Z-)"),
-                                Text.literal("Norte (Z+)"),
-                                Text.literal("Sur (Z-)")
+                                Text.translatable("menu.positioning.title"),
+                                Text.translatable("menu.positioning.subtitle"),
+                                Text.translatable("menu.positioning.op1"),
+                                Text.translatable("menu.positioning.op2")
                         ));
                     });
                 }
